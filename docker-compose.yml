@@ -1,0 +1,84 @@
+version: "3.8"
+
+services:
+  # ----------------------------------------------------
+  # REVERSE PROXY: Nginx Proxy Manager
+  # ----------------------------------------------------
+  nginx-proxy-manager:
+    image: 'jc21/nginx-proxy-manager:latest'
+    container_name: nginx-proxy-manager
+    restart: unless-stopped
+    ports:
+      - '80:80'       # Public HTTP
+      - '81:81'       # Admin Web UI
+      - '443:443'     # Public HTTPS
+    volumes:
+      - ./npm/data:/data
+      - ./npm/letsencrypt:/etc/letsencrypt
+
+  # ----------------------------------------------------
+  # DNS & AD-BLOCKER: Pi-hole + Unbound
+  # ----------------------------------------------------
+  unbound:
+    image: 'mvance/unbound-rpi:latest'
+    container_name: unbound
+    restart: unless-stopped
+    ports:
+      - "5335:53/tcp"
+      - "5335:53/udp"
+
+  pihole:
+    image: pihole/pihole:latest
+    container_name: pihole
+    restart: unless-stopped
+    ports:
+      - "53:53/tcp"
+      - "53:53/udp"
+      - "8080:80/tcp"  # Akses web admin Pi-hole
+    environment:
+      TZ: 'Asia/Jakarta'
+      PIHOLE_DNS_: '10.0.0.18#5335' # Arahkan DNS ke Unbound lokal
+      WEBPASSWORD: 'admin' # Ganti dengan password yang aman
+    volumes:
+      - './pihole/etc-pihole:/etc/pihole'
+      - './pihole/etc-dnsmasq.d:/etc/dnsmasq.d'
+    cap_add:
+      - NET_ADMIN
+
+  # ----------------------------------------------------
+  # DASHBOARD: Homer
+  # ----------------------------------------------------
+  homer:
+    image: b4bz/homer:latest
+    container_name: homer
+    restart: unless-stopped
+    volumes:
+      - ./homer/assets:/www/assets
+    ports:
+      - "8081:8080"
+    user: 1000:1000
+    environment:
+      - INIT_ASSETS=1
+
+  # ----------------------------------------------------
+  # MONITORING: Uptime Kuma
+  # ----------------------------------------------------
+  uptime-kuma:
+    image: louislam/uptime-kuma:1
+    container_name: uptime-kuma
+    restart: unless-stopped
+    volumes:
+      - ./uptime-kuma/data:/app/data
+    ports:
+      - "3001:3001"
+
+  # ----------------------------------------------------
+  # CLI PROXY API
+  # ----------------------------------------------------
+  cli-proxy-api:
+    image: cli-proxy-api-cli-proxy-api
+    container_name: cli-proxy-api
+    restart: unless-stopped
+    ports:
+      - "8317:8317"
+      - "51121:51121"
